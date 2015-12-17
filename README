@@ -1,15 +1,10 @@
 A mostly working Linux shell written in C++, although some features haven't been fully implemented yet.
 
-```
-function test() {
-  console.log("notice the blank line before this function?");
-}
-```
 
 Features: 
 
 ```
-- Create/Remove directories
+        - Create/Remove directories
 - Create/Remove files
 - Enter a new directory
 - Go back one directory level
