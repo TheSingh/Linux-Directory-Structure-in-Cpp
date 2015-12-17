@@ -1,5 +1,11 @@
 A mostly working Linux shell written in C++, although some features haven't been fully implemented yet.
 
+```
+function test() {
+  console.log("notice the blank line before this function?");
+}
+```
+
 Features: 
 
 ```
