@@ -17,7 +17,7 @@ NOTE:
 
 to create files with content, use:
 
-make <filename <content>
+`make <filename <content>`
 
 instead of:
-echo <content> >> <filename>
+`echo <content> >> <filename>`
