@@ -12,3 +12,12 @@ Features:
 - List all files/Directories in current directory
 - commands such as: cd, ls, pwd, mkdir, rm, rmdir are all working
 ```
+
+NOTE:
+
+to create files with content, use:
+
+make <filename <content>
+
+instead of:
+echo <content> >> <filename>
