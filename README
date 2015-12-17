@@ -2,7 +2,7 @@ A mostly working Linux shell written in C++, although some features haven't been
 
 Features: 
 
-'''
+```
 - Create/Remove directories
 - Create/Remove files
 - Enter a new directory
@@ -11,4 +11,4 @@ Features:
 - Display content of files
 - List all files/Directories in current directory
 - commands such as: cd, ls, pwd, mkdir, rm, rmdir are all working
-'''
+```
