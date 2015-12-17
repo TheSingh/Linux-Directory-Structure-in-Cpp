@@ -1,0 +1,326 @@
+// $Id: commands.cpp,v 1.11 2014-06-11 13:49:31-07 - - $
+
+#include "commands.h"
+#include "debug.h"
+#include <algorithm>
+
+commands::commands(): map ({
+   {"cat"   , fn_cat   },
+   {"cd"    , fn_cd    },
+   {"echo"  , fn_echo  },
+   {"exit"  , fn_exit  },
+   {"ls"    , fn_ls    },
+   {"lsr"   , fn_lsr   },
+   {"make"  , fn_make  },
+   {"mkdir" , fn_mkdir },
+   {"prompt", fn_prompt},
+   {"pwd"   , fn_pwd   },
+   {"rm"    , fn_rm    },
+}){}
+
+command_fn commands::at (const string& cmd) {
+   // Note: value_type is pair<const key_type, mapped_type>
+   // So: iterator->first is key_type (string)
+   // So: iterator->second is mapped_type (command_fn)
+   command_map::const_iterator result = map.find (cmd);
+   if (result == map.end()) {
+      throw yshell_exn (cmd + ": no such function");
+   }
+   return result->second;
+}
+
+
+void fn_cat (inode_state& state, const wordvec& words) {
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+   if (words.size() < 2) {
+     fprintf(stderr, "Illegal function call.\n");
+     return;
+   }
+   directory_ptr D = directory_ptr_of((*state.getCwd()).getContents());
+   bool found = false;
+   for(auto it = (*D).getMap().begin(); it != (*D).getMap().end() && !found; ++it) {
+     if( (*it).first == words[1]) {
+       inode_ptr inp = (*it).second;
+       found = true;
+       cout << (*plain_file_ptr_of((*inp).getContents())).readfile() << endl;
+     }
+   }
+   if (!found) {
+     cout << "Error! File not found.\n";
+   }
+}
+
+void fn_cd (inode_state& state, const wordvec& words){
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+   directory_ptr D = directory_ptr_of((*state.getCwd()).getContents());
+   inode_ptr response = state.getRoot();
+   if (words.size() < 2) {
+     cout << "Illegal function call." << endl;
+     return;
+   } else {
+     wordvec pth = split(words[1], "/");
+     for(auto it=pth.begin(); it != pth.end(); ++it) {
+       if ((*it) == ".."){
+	 wordvec newpath = state.getPath();
+	 if (state.getRoot() == state.getCwd()) {
+	   cout << "Error! Invalid pathname." << endl;
+	   return;
+	 }
+	 D = directory_ptr_of((*state.getCwd()).getContents());
+         directory_ptr newDir = directory_ptr_of((*state.getRoot()).getContents());
+         newpath.pop_back();
+	 if(newpath.size() == 0) {
+	   state.setCwd(state.getRoot());
+	   state.setPath(wordvec());
+	 }else {
+	   if((*newDir).getMap().size() > 0) {
+	     for(auto itr= (newpath).begin(); itr != (newpath).end(); ++itr) {
+	       bool looking = true;
+	       for(auto itor= (*newDir).getMap().begin(); itor != (*newDir).getMap().end() && looking; ++itor) {
+		 if ((*itor).first == (*itr)+"/") {
+		   looking = false;
+		   newDir = directory_ptr_of((*(*itor).second).getContents());
+		   D = newDir;
+		   response = (*itor).second;
+		 }
+	       }
+	       if(looking) {
+		 cout << "Error! Invaild pathname." << endl;
+		 return;
+	       }
+	     }
+	   } else {
+	     cout << "Error! Invalid pathname." << endl;
+	     return;
+	   }
+	   state.setCwd(response);
+	   state.setPath(newpath);
+	 }
+       } else {
+	 response = state.getCwd();
+	 bool found = false;
+	 if((*D).getMap().size() > 0) {
+	   for(auto itor= (*D).getMap().begin(); itor != (*D).getMap().end() && !found; ++itor) {
+	     if ((*itor).first == (*it)+"/") {
+	       found = true;
+	       D = directory_ptr_of((*(*itor).second).getContents());
+	       response = (*itor).second;       
+	     }
+	   }
+	   if(!found) {
+	     cout << "Error! Invaild pathname." << endl;
+	     return;
+	   }
+	 } else {
+	   cout << "Error! Invalid pathname." << endl;
+	   return;
+	 }
+	 state.setCwd(response);
+	 wordvec newpath = state.getPath();
+	 newpath.push_back(*it);
+	 state.setPath(newpath);
+       }
+     }
+   }
+}
+
+void fn_echo (inode_state& state, const wordvec& words){
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+   if (words.size() == 1) {
+     cout << endl;
+     return;
+   }
+
+   for(auto it = words.begin()+1; it != words.end(); ++it) {
+     cout << *it << ' ';
+   }
+   cout << endl;
+}
+
+void fn_exit (inode_state& state, const wordvec& words){
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+   throw ysh_exit_exn();
+}
+
+void fn_ls (inode_state& state, const wordvec& words){
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+   string s = "/";
+   wordvec pth = state.getPath();
+   directory_ptr D = directory_ptr_of((*state.getCwd()).getContents());
+
+   if (words.size() != 1) {
+     wordvec path = split(words[1], "/");
+     for (auto it = path.begin(); it != path.end(); ++it) {
+       if (*it == "..") {
+	 D = D->getParent();
+	 pth.pop_back();
+       } else {
+	 if((*D).getMap().size() > 0) {
+	   bool found = false;
+           for(auto itor= (*D).getMap().begin(); itor != (*D).getMap().end() && !found; ++\
+		 itor) {
+             if ((*itor).first == (*it)+"/") {
+               found = true;
+	       pth.push_back(*it);
+               D = directory_ptr_of((*(*itor).second).getContents());
+             }
+           }
+           if(!found) {
+             cout << "Error! Invaild pathname." << endl;
+             return;
+	   }
+	 }
+       }	 
+     }
+   }
+   for(auto it = pth.begin(); it != pth.end(); ++it) {
+     s +=  *it + '/';
+   }
+   s += ":\n";
+   cout << s << (*D).getDirents() << endl;
+}
+
+void print_recursive(directory_ptr D, wordvec pth) {
+  string s = "/";
+  for(auto it = pth.begin(); it != pth.end(); ++it) {
+    s +=  *it;
+  }
+  s += ":\n";
+  co
+  if(D->getMap().size() > 0) {
+    cout << "called" << endl;
+    for(auto it = (*D).getMap().begin(); it!= (*D).getMap().end(); ++it) {
+      if( it->first.back() == '/') {
+        wordvec p = pth;
+        p.push_back(it->first);
+	print_recursive(directory_ptr_of((*(*it).second).getContents()), p);
+      }
+    }
+  }
+}
+
+void fn_lsr (inode_state& state, const wordvec& words){
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+   string s = "/";
+   wordvec pth = state.getPath();
+   directory_ptr D = directory_ptr_of((*state.getCwd()).getContents());
+
+   if (words.size() != 1) {
+     wordvec path = split(words[1], "/");
+     for (auto it = path.begin(); it != path.end(); ++it) {
+       if (*it == "..") {
+	 if(D->getParent() == nullptr) {
+	   fprintf(stderr, "Error: Invalid path.\n");
+	   return;
+	 }
+	 D = D->getParent();
+	 pth.pop_back();
+       } else {
+         if((*D).getMap().size() > 0) {
+           bool found = false;
+           for(auto itor= (*D).getMap().begin(); itor != (*D).getMap().end() && !found; ++\
+                 itor) {
+             if ((*itor).first == (*it)+"/") {
+               found = true;
+               pth.push_back(*it);
+               D = directory_ptr_of((*(*itor).second).getContents());
+             }
+           }
+           if(!found) {
+             cout << "Error! Invaild pathname." << endl;
+             return;
+           }
+         }
+       }
+     }
+   }
+   print_recursive(D, pth);
+}
+
+
+void fn_make (inode_state& state, const wordvec& words){
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+   if (words.size() < 2) {
+     fprintf(stderr, "Illegal function call.\n");
+     return;
+   }
+
+   directory_ptr D = directory_ptr_of((*state.getCwd()).getContents());
+   inode f = (*D).mkfile(words[1]);
+   if(words.size() > 2) {
+     plain_file_ptr pfp = plain_file_ptr_of(f.getContents());
+     vector<string> filecontents = words;
+     filecontents.erase(filecontents.begin(), filecontents.begin()+2);
+     (*pfp).writefile(filecontents);
+   }
+     
+}
+
+void fn_mkdir (inode_state& state, const wordvec& words){
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+   if (words.size() < 2) {
+     fprintf(stderr, "Illegal function call.\n");
+     return;
+   }
+
+   directory_ptr D = directory_ptr_of((*state.getCwd()).getContents());
+   (*D).mkdir(state, words[1]+'/');
+}
+
+void fn_prompt (inode_state& state, const wordvec& words){
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+   string s = "";
+   if(words.size() == 1) {
+     s += ' ';
+     state.setPrompt(s);
+     return;
+   }
+
+   for(auto it = words.begin()+1; it != words.end(); ++it) {
+     s += *it + ' ';
+   }
+   state.setPrompt(s);
+}
+
+void fn_pwd (inode_state& state, const wordvec& words){
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+   string s = "/";
+   wordvec pth = state.getPath();
+
+   for(auto it = pth.begin(); it != pth.end(); ++it) {
+     s +=  *it + '/';
+   }
+   cout << s << endl;
+}
+
+void fn_rm (inode_state& state, const wordvec& words){
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+   if (words.size() < 2) {
+     fprintf(stderr, "Illegal function call.\n");
+     return;
+   }
+
+}
+
+void fn_rmr (inode_state& state, const wordvec& words){
+   DEBUGF ('c', state);
+   DEBUGF ('c', words);
+}
+
+int exit_status_message() {
+   int exit_status = exit_status::get();
+   cout << execname() << ": exit(" << exit_status << ")" << endl;
+   return exit_status;
+}
+
