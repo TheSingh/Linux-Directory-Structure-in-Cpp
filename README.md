@@ -16,7 +16,6 @@ Features:
 NOTE:
 
 to create files with content, use:
-
 `make <filename <content>`
 
 instead of:
