@@ -1,6 +1,5 @@
 A mostly working Linux shell written in C++, although some features haven't been fully implemented yet.
 
-`adljk`
 Features: 
 
 ```
