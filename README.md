@@ -1,4 +1,4 @@
-A mostly working Linux shell written in C++, although some features haven't been fully implemented yet.
+A working Linux shell written in C++, done mostly by exploiting polymorphism.
 
 Features: 
 
